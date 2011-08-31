@@ -158,6 +158,35 @@ def get_current_traceback(ignore_system_exceptions=False,
     return tb
 
 
+def highlight_or_escape(source):
+    """Highlight source if pygments is available otherwise escape it"""
+    try:
+        from pygments import highlight
+        from pygments.formatters.html import HtmlFormatter
+        from pygments.lexers import guess_lexer, get_lexer_by_name
+        from pygments.util import ClassNotFound
+        try:
+            lexer = guess_lexer(source)
+        except ClassNotFound:
+            lexer = get_lexer_by_name('python')
+        if lexer.analyse_text(source) < .3:
+            lexer = get_lexer_by_name('python')
+        return highlight(
+            source, lexer, HtmlFormatter(
+                style='friendly', noclasses=True, nowrap=True))
+    except ImportError:
+        return escape(source)
+
+
+def highlight_lines(lines):
+    """Highlight lines if pygments is available"""
+    colored_lines = highlight_or_escape(
+        '\n'.join([line.code for line in lines])).split('\n')
+    for line in lines:
+        line.code = colored_lines[line.lineno - 1]
+    return lines
+
+
 class Line(object):
     """Helper for the source renderer."""
     __slots__ = ('lineno', 'code', 'in_frame', 'current')
@@ -181,7 +210,7 @@ class Line(object):
         return SOURCE_LINE_HTML % {
             'classes':      u' '.join(self.classes),
             'lineno':       self.lineno,
-            'code':         escape(self.code)
+            'code':         self.code
         }
 
 
@@ -372,7 +401,7 @@ class Frame(object):
             'filename':         escape(self.filename),
             'lineno':           self.lineno,
             'function_name':    escape(self.function_name),
-            'current_line':     escape(self.current_line.strip())
+            'current_line':     highlight_or_escape(self.current_line.strip())
         }
 
     def get_annotated_lines(self):
@@ -404,8 +433,9 @@ class Frame(object):
 
     def render_source(self):
         """Render the sourcecode."""
-        return SOURCE_TABLE_HTML % u'\n'.join(line.render() for line in
-                                              self.get_annotated_lines())
+        return SOURCE_TABLE_HTML % u'\n'.join(
+            line.render() for line in
+            highlight_lines(self.get_annotated_lines()))
 
     def eval(self, code, mode='single'):
         """Evaluate code in the context of the frame."""
