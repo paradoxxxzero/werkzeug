@@ -172,8 +172,7 @@ def highlight_or_escape(source):
         if lexer.analyse_text(source) < .3:
             lexer = get_lexer_by_name('python')
         return highlight(
-            source, lexer, HtmlFormatter(
-                style='friendly', noclasses=True, nowrap=True))
+            source, lexer, HtmlFormatter(nowrap=True))
     except ImportError:
         return escape(source)
 
